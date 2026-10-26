@@ -14,7 +14,8 @@
     {"id": "paramount", "name": "Paramount+", "url": "https://www.paramountplus.com", "color": "#1a4fa0"},
     {"id": "plex", "name": "Plex", "url": "https://app.plex.tv/desktop", "color": "#8a6a1f"},
     {"id": "espn", "name": "ESPN", "url": "https://www.espn.com/watch", "color": "#9a1f1f"},
-    {"id": "twitch", "name": "Twitch", "url": "https://www.twitch.tv", "color": "#5a3a9a"}
+    {"id": "twitch", "name": "Twitch", "url": "https://www.twitch.tv", "color": "#5a3a9a"},
+    {"id": "stremio", "name": "Stremio", "url": "https://web.stremio.com", "color": "#4a2f8f"}
   ],
-  "visible": ["netflix", "youtube", "prime", "disney", "appletv", "max", "hulu", "spotify"]
+  "visible": ["netflix", "youtube", "prime", "disney", "appletv", "max", "hulu", "spotify", "stremio"]
 }

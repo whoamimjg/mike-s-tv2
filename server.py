@@ -15,6 +15,7 @@ import qrcode
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_FILE = BASE_DIR / "data" / "config.json"
+EXAMPLE_FILE = BASE_DIR / "data" / "config.example.json"
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 PORT = 4950
@@ -24,6 +25,11 @@ tv_sockets = set()
 
 
 def load_config():
+    if not DATA_FILE.exists():
+        # First run on this machine: start from the shipped defaults.
+        # config.json itself is gitignored, so your own settings here
+        # never get overwritten by a later `git pull`.
+        DATA_FILE.write_text(EXAMPLE_FILE.read_text())
     with open(DATA_FILE) as f:
         return json.load(f)
 
@@ -112,8 +118,16 @@ async def handle_ws(request):
     return ws
 
 
+@web.middleware
+async def no_cache_middleware(request, handler):
+    """Prevent the TV's browser from holding on to a stale CSS/JS copy after an update."""
+    response = await handler(request)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
 def create_app():
-    app = web.Application()
+    app = web.Application(middlewares=[no_cache_middleware])
     app.router.add_get("/", handle_index)
     app.router.add_get("/remote", handle_remote)
     app.router.add_get("/api/config", handle_get_config)

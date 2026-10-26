@@ -64,12 +64,12 @@ body.theme-minimal {
 }
 
 .tile-icon {
-  width: clamp(64px, 11vw, 110px);
-  height: clamp(64px, 11vw, 110px);
+  width: clamp(80px, 16vw, 160px);
+  height: clamp(80px, 16vw, 160px);
   object-fit: contain;
   background: #fff;
-  border-radius: 16px;
-  padding: 14px;
+  border-radius: 20px;
+  padding: 16px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
 }
 
