@@ -1,0 +1,13 @@
+[Unit]
+Description=Mike TV home screen
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mike-tv
+ExecStart=/opt/mike-tv/venv/bin/python3 /opt/mike-tv/server.py
+Restart=on-failure
+User=root
+
+[Install]
+WantedBy=multi-user.target

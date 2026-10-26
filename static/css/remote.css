@@ -1,0 +1,59 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #0a0a0a;
+  color: #fff;
+  font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  user-select: none;
+}
+
+.status {
+  position: absolute;
+  top: 16px;
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+.dpad {
+  display: grid;
+  grid-template-columns: 70px 70px 70px;
+  grid-template-rows: 70px 70px 70px;
+  gap: 10px;
+  grid-template-areas:
+    ".    up    ."
+    "left ok    right"
+    ".    down  .";
+}
+
+.d {
+  border-radius: 50%;
+  border: none;
+  background: #1c6b56;
+  color: #fff;
+  font-size: 20px;
+  -webkit-tap-highlight-color: transparent;
+}
+.d:active { background: #2aa98a; }
+
+.up { grid-area: up; }
+.down { grid-area: down; }
+.left { grid-area: left; }
+.right { grid-area: right; }
+.ok { grid-area: ok; background: #2aa98a; font-weight: 700; }
+
+.row { display: flex; gap: 16px; }
+.wide {
+  padding: 14px 22px;
+  border-radius: 10px;
+  border: none;
+  background: #222;
+  color: #fff;
+  font-size: 15px;
+}

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mike TV</title>
+<link rel="stylesheet" href="/static/css/home.css">
+</head>
+<body>
+  <div id="clock" class="clock"></div>
+  <div id="grid" class="grid" tabindex="0"></div>
+
+  <button id="gear" class="gear" aria-label="Settings">&#9881;</button>
+
+  <div id="panel" class="panel hidden">
+    <h2>Settings</h2>
+
+    <div class="panel-section">
+      <h3>Theme</h3>
+      <div id="theme-options" class="theme-options"></div>
+    </div>
+
+    <div class="panel-section">
+      <h3>Apps</h3>
+      <div id="app-list" class="app-list"></div>
+    </div>
+
+    <div class="panel-section">
+      <h3>Phone remote</h3>
+      <img id="qr" class="qr" alt="Scan with your phone's camera">
+      <p id="remote-url" class="remote-url"></p>
+    </div>
+
+    <button id="close-panel" class="close-panel">Done</button>
+  </div>
+
+<script src="/static/js/home.js"></script>
+</body>
+</html>
