@@ -35,13 +35,33 @@ function visibleApps() {
     .filter(Boolean);
 }
 
+function faviconUrl(app) {
+  try {
+    const host = new URL(app.url).hostname;
+    return `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
+  } catch (e) {
+    return '';
+  }
+}
+
 function renderGrid() {
   grid.innerHTML = '';
   visibleApps().forEach((app) => {
     const el = document.createElement('div');
     el.className = 'tile';
     el.style.background = `linear-gradient(135deg, ${app.color}, ${app.color}aa)`;
-    el.textContent = app.name;
+
+    const icon = document.createElement('img');
+    icon.className = 'tile-icon';
+    icon.src = faviconUrl(app);
+    icon.alt = '';
+    icon.onerror = () => { el.classList.add('no-icon'); icon.remove(); };
+
+    const label = document.createElement('span');
+    label.className = 'tile-label';
+    label.textContent = app.name;
+
+    el.append(icon, label);
     el.addEventListener('click', () => openApp(app));
     grid.appendChild(el);
   });
