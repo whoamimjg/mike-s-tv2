@@ -3,6 +3,7 @@ const gear = document.getElementById('gear');
 const panel = document.getElementById('panel');
 const closePanel = document.getElementById('close-panel');
 const clockEl = document.getElementById('clock');
+const weatherEl = document.getElementById('weather');
 const themeOptions = document.getElementById('theme-options');
 const appList = document.getElementById('app-list');
 const qrImg = document.getElementById('qr');
@@ -185,6 +186,21 @@ async function saveConfig() {
   });
 }
 
+async function loadWeather() {
+  try {
+    const res = await fetch('/api/weather');
+    const w = await res.json();
+    if (w.temperature === null || w.temperature === undefined) {
+      weatherEl.textContent = '';
+      return;
+    }
+    weatherEl.textContent = `${w.icon} ${w.temperature}° ${w.location}`;
+  } catch (e) {
+    weatherEl.textContent = '';
+  }
+}
+setInterval(loadWeather, 10 * 60 * 1000);
+
 async function loadInfo() {
   const res = await fetch('/api/info');
   const info = await res.json();
@@ -213,6 +229,7 @@ async function init() {
   renderThemePicker();
   renderAppList();
   loadInfo();
+  loadWeather();
   connectWS();
   grid.focus();
 }
