@@ -1,6 +1,22 @@
 {
   "theme": "shore",
   "clock": true,
+  "ambient": {
+    "enabled": true,
+    "idle_seconds": 120
+  },
+  "stremio": {
+    "enabled": true
+  },
+  "meals": [
+    {"day": "Mon", "meal": ""},
+    {"day": "Tue", "meal": ""},
+    {"day": "Wed", "meal": ""},
+    {"day": "Thu", "meal": ""},
+    {"day": "Fri", "meal": ""},
+    {"day": "Sat", "meal": ""},
+    {"day": "Sun", "meal": ""}
+  ],
   "apps": [
     {"id": "netflix", "name": "Netflix", "url": "https://www.netflix.com", "color": "#8a1f1f"},
     {"id": "youtube", "name": "YouTube", "url": "https://www.youtube.com/tv", "color": "#8a2020"},

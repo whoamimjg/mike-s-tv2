@@ -1,0 +1,21 @@
+# Forwards the LG remote (HDMI-CEC) to the kiosk as keystrokes.
+#
+#   sudo cp deploy/kiosk/cec-bridge.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now cec-bridge
+#
+[Unit]
+Description=Mike TV CEC remote bridge
+After=chromium-kiosk.service
+Requires=chromium-kiosk.service
+
+[Service]
+User=kiosk
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/kiosk/.Xauthority
+ExecStart=/opt/mike-tv/venv/bin/python /opt/mike-tv/deploy/kiosk/cec-bridge.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

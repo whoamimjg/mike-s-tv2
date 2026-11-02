@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Mike TV - a private, local home screen for your TV.
 
-Runs as a small local web server. Open it in your TV's browser, or plug a
-computer into the TV over HDMI and open it full screen. A phone can act as
-a remote control over the same local network.
+Runs as a small local web server. On the Proxmox box it is shown full-screen
+by a Chromium kiosk over HDMI (see deploy/kiosk/). A phone can also act as a
+remote control over the local network, and an LG remote works through the
+HDMI-CEC bridge (deploy/kiosk/cec-bridge.py).
 """
 import json
+import os
 import socket
 import io
 import time
@@ -18,6 +20,7 @@ import qrcode
 BASE_DIR = Path(__file__).resolve().parent
 DATA_FILE = BASE_DIR / "data" / "config.json"
 EXAMPLE_FILE = BASE_DIR / "data" / "config.example.json"
+SECRETS_FILE = BASE_DIR / "data" / "secrets.json"
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 PORT = 4950
@@ -28,10 +31,15 @@ WEATHER_LON = -81.5190
 WEATHER_TIMEZONE = "America/New_York"
 WEATHER_CACHE_SECONDS = 600  # Open-Meteo is free/keyless; still no need to hit it every page load.
 
+# Stremio account sync (reads your own library "continue watching").
+STREMIO_API = "https://api.strem.io/api"
+CONTINUE_CACHE_SECONDS = 120
+
 # Websocket connections from TV displays, so a phone remote can reach them.
 tv_sockets = set()
 
 _weather_cache = {"time": 0, "data": None}
+_continue_cache = {"time": 0, "data": None}
 
 WEATHER_CODES = {
     0: ("Clear", "☀️"),
@@ -62,6 +70,21 @@ WEATHER_CODES = {
     99: ("Thunderstorm", "⛈️"),
 }
 
+# Keys added over time; make sure older config.json files gain sane defaults.
+CONFIG_DEFAULTS = {
+    "ambient": {"enabled": True, "idle_seconds": 120},
+    "meals": [
+        {"day": "Mon", "meal": ""},
+        {"day": "Tue", "meal": ""},
+        {"day": "Wed", "meal": ""},
+        {"day": "Thu", "meal": ""},
+        {"day": "Fri", "meal": ""},
+        {"day": "Sat", "meal": ""},
+        {"day": "Sun", "meal": ""},
+    ],
+    "stremio": {"enabled": True},
+}
+
 
 def load_config():
     if not DATA_FILE.exists():
@@ -70,7 +93,15 @@ def load_config():
         # never get overwritten by a later `git pull`.
         DATA_FILE.write_text(EXAMPLE_FILE.read_text())
     with open(DATA_FILE) as f:
-        return json.load(f)
+        cfg = json.load(f)
+    changed = False
+    for key, default in CONFIG_DEFAULTS.items():
+        if key not in cfg:
+            cfg[key] = default
+            changed = True
+    if changed:
+        save_config(cfg)
+    return cfg
 
 
 def save_config(cfg):
@@ -78,6 +109,15 @@ def save_config(cfg):
     with open(tmp, "w") as f:
         json.dump(cfg, f, indent=2)
     tmp.replace(DATA_FILE)
+
+
+def load_secrets():
+    if SECRETS_FILE.exists():
+        try:
+            return json.loads(SECRETS_FILE.read_text())
+        except Exception:
+            return {}
+    return {}
 
 
 def local_ip():
@@ -167,6 +207,91 @@ async def handle_weather(request):
         return web.json_response({"temperature": None, "label": "", "icon": "", "location": "Akron, OH"})
 
 
+def _stremio_poster(item):
+    poster = item.get("poster")
+    if poster:
+        return poster
+    _id = item.get("_id") or ""
+    base_id = _id.split(":")[0]
+    if base_id.startswith("tt"):
+        return f"https://images.metahub.space/poster/medium/{base_id}/img"
+    return ""
+
+
+def _stremio_link(item, state):
+    _id = item.get("_id") or ""
+    base_id = _id.split(":")[0]
+    itype = item.get("type") or "movie"
+    link = f"https://web.stremio.com/#/detail/{itype}/{base_id}"
+    video_id = state.get("video_id")
+    if video_id:
+        link += f"/{video_id}"
+    return link
+
+
+async def stremio_library(authkey):
+    payload = {"authKey": authkey, "collection": "libraryItem", "all": True}
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            f"{STREMIO_API}/datastoreGet", json=payload,
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as resp:
+            data = await resp.json()
+    return data.get("result") or []
+
+
+async def handle_continue(request):
+    """Recently-watched shows/movies from the user's own Stremio account."""
+    cfg = load_config()
+    if not cfg.get("stremio", {}).get("enabled", True):
+        return web.json_response({"enabled": False, "items": []})
+
+    now = time.time()
+    if _continue_cache["data"] is not None and now - _continue_cache["time"] < CONTINUE_CACHE_SECONDS:
+        return web.json_response(_continue_cache["data"])
+
+    authkey = os.environ.get("STREMIO_AUTHKEY") or load_secrets().get("stremio_authkey")
+    if not authkey:
+        return web.json_response({"enabled": True, "connected": False, "items": []})
+
+    try:
+        lib = await stremio_library(authkey)
+        items = []
+        for it in lib:
+            if it.get("removed") or it.get("temp"):
+                continue
+            state = it.get("state") or {}
+            last = state.get("lastWatched")
+            if not last:
+                continue
+            duration = state.get("duration") or 0
+            offset = state.get("timeOffset") or 0
+            progress = round(offset / duration * 100) if duration else 0
+            progress = max(0, min(100, progress))
+            label = ""
+            if state.get("season") and state.get("episode"):
+                label = f"S{state['season']}:E{state['episode']}"
+            items.append({
+                "id": it.get("_id"),
+                "name": it.get("name") or "Untitled",
+                "type": it.get("type"),
+                "poster": _stremio_poster(it),
+                "progress": progress,
+                "label": label,
+                "lastWatched": last,
+                "link": _stremio_link(it, state),
+            })
+        items.sort(key=lambda x: x["lastWatched"], reverse=True)
+        payload = {"enabled": True, "connected": True, "items": items[:20]}
+        _continue_cache["data"] = payload
+        _continue_cache["time"] = now
+        return web.json_response(payload)
+    except Exception as e:
+        if _continue_cache["data"] is not None:
+            return web.json_response(_continue_cache["data"])
+        return web.json_response({"enabled": True, "connected": True, "items": [], "error": str(e)})
+
+
 async def handle_ws(request):
     ws = web.WebSocketResponse(heartbeat=25)
     await ws.prepare(request)
@@ -211,6 +336,7 @@ def create_app():
     app.router.add_get("/api/info", handle_info)
     app.router.add_get("/api/qr", handle_qr)
     app.router.add_get("/api/weather", handle_weather)
+    app.router.add_get("/api/continue", handle_continue)
     app.router.add_get("/ws", handle_ws)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
     return app

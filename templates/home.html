@@ -4,18 +4,69 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mike TV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/home.css">
 </head>
-<body>
-  <div id="clock-weather" class="clock-weather">
-    <div id="clock" class="clock"></div>
-    <div id="weather" class="weather"></div>
+<body class="theme-shore">
+
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+    <span class="orb orb-c"></span>
   </div>
-  <div id="grid" class="grid" tabindex="0"></div>
 
-  <button id="gear" class="gear" aria-label="Settings">&#9881;</button>
+  <header class="topbar">
+    <div class="topbar-left">
+      <div id="clock" class="clock">--:--</div>
+      <div id="date" class="date"></div>
+    </div>
+    <div class="topbar-right">
+      <div id="weather" class="weather"></div>
+      <button id="gear" class="gear" aria-label="Settings">&#9881;</button>
+    </div>
+  </header>
 
-  <div id="panel" class="panel hidden">
+  <main id="home" class="home">
+    <section id="continue-section" class="shelf hidden">
+      <h2 class="shelf-title">Continue Watching</h2>
+      <div id="continue-row" class="poster-row"></div>
+    </section>
+
+    <section class="shelf">
+      <h2 class="shelf-title">Apps</h2>
+      <div id="grid" class="grid" tabindex="0"></div>
+    </section>
+  </main>
+
+  <!-- Ambient "screensaver" dashboard, shown when the TV is idle -->
+  <div id="ambient" class="ambient hidden">
+    <div id="ambient-bg" class="ambient-bg"></div>
+    <div class="ambient-scrim"></div>
+    <div class="ambient-inner">
+      <div class="ambient-time">
+        <div id="ambient-clock" class="ambient-clock">--:--</div>
+        <div id="ambient-date" class="ambient-date"></div>
+        <div id="ambient-weather" class="ambient-weather"></div>
+      </div>
+      <div class="ambient-cards">
+        <div class="ambient-card">
+          <h3>This Week&rsquo;s Meals</h3>
+          <ul id="ambient-meals" class="meals-list"></ul>
+        </div>
+        <div class="ambient-card" id="ambient-watching-card">
+          <h3>Jump Back In</h3>
+          <div id="ambient-watching" class="ambient-watching"></div>
+        </div>
+      </div>
+    </div>
+    <div class="ambient-hint">Press any button to wake</div>
+  </div>
+
+  <!-- Settings -->
+  <button id="scrim" class="scrim hidden" aria-hidden="true"></button>
+  <aside id="panel" class="panel hidden">
     <h2>Settings</h2>
 
     <div class="panel-section">
@@ -24,18 +75,31 @@
     </div>
 
     <div class="panel-section">
+      <h3>Continue Watching</h3>
+      <p id="stremio-status" class="status-line">Checking Stremio&hellip;</p>
+    </div>
+
+    <div class="panel-section">
+      <h3>Ambient screen</h3>
+      <label class="toggle-row">
+        <input type="checkbox" id="ambient-toggle">
+        <span>Show the family dashboard when idle</span>
+      </label>
+    </div>
+
+    <div class="panel-section">
       <h3>Apps</h3>
       <div id="app-list" class="app-list"></div>
     </div>
 
     <div class="panel-section">
-      <h3>Phone remote</h3>
+      <h3>Phone remote &amp; meal planner</h3>
       <img id="qr" class="qr" alt="Scan with your phone's camera">
       <p id="remote-url" class="remote-url"></p>
     </div>
 
     <button id="close-panel" class="close-panel">Done</button>
-  </div>
+  </aside>
 
 <script src="/static/js/home.js"></script>
 </body>

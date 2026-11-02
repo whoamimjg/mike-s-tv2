@@ -9,18 +9,31 @@
 <body>
   <div id="status" class="status">Connecting&hellip;</div>
 
-  <div class="dpad">
-    <button data-key="up" class="d up">&#9650;</button>
-    <button data-key="left" class="d left">&#9664;</button>
-    <button data-key="ok" class="d ok">OK</button>
-    <button data-key="right" class="d right">&#9654;</button>
-    <button data-key="down" class="d down">&#9660;</button>
+  <div class="tabs">
+    <button id="tab-remote" class="tab active">Remote</button>
+    <button id="tab-meals" class="tab">Meals</button>
   </div>
 
-  <div class="row">
-    <button data-key="back" class="wide">Back</button>
-    <button data-key="settings" class="wide">Settings</button>
-  </div>
+  <section id="pane-remote" class="pane">
+    <div class="dpad">
+      <button data-key="up" class="d up">&#9650;</button>
+      <button data-key="left" class="d left">&#9664;</button>
+      <button data-key="ok" class="d ok">OK</button>
+      <button data-key="right" class="d right">&#9654;</button>
+      <button data-key="down" class="d down">&#9660;</button>
+    </div>
+    <div class="row">
+      <button data-key="back" class="wide">Back</button>
+      <button data-key="settings" class="wide">Settings</button>
+    </div>
+  </section>
+
+  <section id="pane-meals" class="pane hidden">
+    <h2 class="pane-title">This week&rsquo;s meals</h2>
+    <div id="meals-editor" class="meals-editor"></div>
+    <button id="save-meals" class="save">Save meals</button>
+    <p id="meals-saved" class="saved"></p>
+  </section>
 
 <script src="/static/js/remote.js"></script>
 </body>
