@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch Chromium full-screen (kiosk) pointing at the local Mike TV server.
+# Launch Chromium full-screen (kiosk) pointing at the Mike TV server.
 # Called by xinit from chromium-kiosk.service. No desktop environment needed.
 set -e
 
@@ -12,6 +12,16 @@ xset s noblank || true
 
 # Hide the mouse pointer after 1s idle.
 command -v unclutter >/dev/null 2>&1 && unclutter -idle 1 &
+
+# Wait for the server to answer before launching the browser, so an appliance
+# boot where the TV box starts before the server (e.g. a separate container)
+# doesn't land on a connection-error page. Gives up after ~2 minutes.
+if command -v curl >/dev/null 2>&1; then
+  for _ in $(seq 1 60); do
+    curl -sf -o /dev/null "$URL" && break
+    sleep 2
+  done
+fi
 
 CHROME="$(command -v chromium || command -v chromium-browser || command -v google-chrome || true)"
 if [ -z "$CHROME" ]; then

@@ -43,7 +43,7 @@ box. Most PC graphics cards do **not** carry CEC over HDMI. So, realistically:
 ```bash
 sudo apt update
 sudo apt install -y xserver-xorg xinit x11-xserver-utils \
-                    chromium unclutter cec-utils xdotool
+                    chromium unclutter cec-utils xdotool curl
 ```
 
 (On some images the browser package is `chromium-browser`.)
