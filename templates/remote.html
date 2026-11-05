@@ -12,6 +12,7 @@
   <div class="tabs">
     <button id="tab-remote" class="tab active">Remote</button>
     <button id="tab-meals" class="tab">Meals</button>
+    <button id="tab-photos" class="tab">Photos</button>
   </div>
 
   <section id="pane-remote" class="pane">
@@ -30,26 +31,41 @@
 
   <section id="pane-meals" class="pane hidden">
     <h2 class="pane-title">This week&rsquo;s meals</h2>
-
     <label class="gcal-toggle">
       <input type="checkbox" id="gcal-on">
       <span>Pull meals from Google Calendar (your recipe manager)</span>
     </label>
-
     <div id="gcal-box" class="gcal-box hidden">
-      <p class="hint">Paste your meal calendar&rsquo;s <b>secret iCal address</b> (Google Calendar &rarr; Settings &rarr; your calendar &rarr; Integrate calendar).</p>
+      <p class="hint">Paste your meal calendar&rsquo;s <b>iCal address</b> (Google Calendar &rarr; Settings &rarr; your calendar &rarr; Integrate calendar &rarr; address in iCal format).</p>
       <input type="url" id="gcal-url" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
       <input type="text" id="gcal-filter" placeholder="Optional: only titles containing&hellip; (e.g. Dinner)">
       <button id="save-gcal" class="save">Save calendar</button>
       <div id="gcal-preview" class="gcal-preview"></div>
     </div>
-
     <div id="manual-box">
       <div id="meals-editor" class="meals-editor"></div>
       <button id="save-meals" class="save">Save meals</button>
     </div>
-
     <p id="meals-saved" class="saved"></p>
+  </section>
+
+  <section id="pane-photos" class="pane hidden">
+    <h2 class="pane-title">Background photos</h2>
+    <label class="gcal-toggle">
+      <input type="checkbox" id="photos-on">
+      <span>Show a Google Photos album behind the clock when idle</span>
+    </label>
+    <div id="photos-box" class="gcal-box hidden">
+      <p class="hint">In Google Photos, open the album &rarr; Share &rarr; <b>Create link</b>, then paste that link here. Add photos to the album anytime and they&rsquo;ll appear on the TV.</p>
+      <input type="url" id="photos-url" placeholder="https://photos.app.goo.gl/&hellip;">
+      <div class="inline-field">
+        <label for="photos-interval">Seconds per photo</label>
+        <input type="number" id="photos-interval" min="4" max="120" value="12">
+      </div>
+      <button id="save-photos" class="save">Save album</button>
+      <p id="photos-status" class="status-line"></p>
+    </div>
+    <p id="photos-saved" class="saved"></p>
   </section>
 
 <script src="/static/js/remote.js"></script>

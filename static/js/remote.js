@@ -1,8 +1,8 @@
 const statusEl = document.getElementById('status');
-const tabRemote = document.getElementById('tab-remote');
-const tabMeals = document.getElementById('tab-meals');
-const paneRemote = document.getElementById('pane-remote');
-const paneMeals = document.getElementById('pane-meals');
+const tabs = { remote: document.getElementById('tab-remote'), meals: document.getElementById('tab-meals'), photos: document.getElementById('tab-photos') };
+const panes = { remote: document.getElementById('pane-remote'), meals: document.getElementById('pane-meals'), photos: document.getElementById('pane-photos') };
+
+// meals els
 const mealsEditor = document.getElementById('meals-editor');
 const saveMeals = document.getElementById('save-meals');
 const mealsSaved = document.getElementById('meals-saved');
@@ -14,8 +14,19 @@ const gcalFilter = document.getElementById('gcal-filter');
 const saveGcal = document.getElementById('save-gcal');
 const gcalPreview = document.getElementById('gcal-preview');
 
+// photos els
+const photosOn = document.getElementById('photos-on');
+const photosBox = document.getElementById('photos-box');
+const photosUrl = document.getElementById('photos-url');
+const photosInterval = document.getElementById('photos-interval');
+const savePhotos = document.getElementById('save-photos');
+const photosStatus = document.getElementById('photos-status');
+const photosSaved = document.getElementById('photos-saved');
+
 let ws;
 let config = null;
+let mealsLoaded = false;
+let photosLoaded = false;
 
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -32,115 +43,108 @@ document.querySelectorAll('[data-key]').forEach(btn => {
   });
 });
 
-// ---- tabs ----
 function showTab(which) {
-  const meals = which === 'meals';
-  tabMeals.classList.toggle('active', meals);
-  tabRemote.classList.toggle('active', !meals);
-  paneMeals.classList.toggle('hidden', !meals);
-  paneRemote.classList.toggle('hidden', meals);
-  if (meals && !config) loadMeals();
+  Object.keys(tabs).forEach(k => {
+    tabs[k].classList.toggle('active', k === which);
+    panes[k].classList.toggle('hidden', k !== which);
+  });
+  if (which === 'meals' && !mealsLoaded) { mealsLoaded = true; loadMeals(); }
+  if (which === 'photos' && !photosLoaded) { photosLoaded = true; loadPhotos(); }
 }
-tabRemote.addEventListener('click', () => showTab('remote'));
-tabMeals.addEventListener('click', () => showTab('meals'));
+tabs.remote.addEventListener('click', () => showTab('remote'));
+tabs.meals.addEventListener('click', () => showTab('meals'));
+tabs.photos.addEventListener('click', () => showTab('photos'));
 
-// ---- meals tab ----
-function flash(msg) { mealsSaved.textContent = msg; setTimeout(() => { mealsSaved.textContent = ''; }, 2000); }
+function flash(el, msg) { el.textContent = msg; setTimeout(() => { el.textContent = ''; }, 2000); }
 
-function applyMode(source, hasUrl, filter) {
-  const gcal = source === 'gcal';
-  gcalOn.checked = gcal;
-  gcalBox.classList.toggle('hidden', !gcal);
-  manualBox.classList.toggle('hidden', gcal);
-  if (hasUrl && !gcalUrl.value) gcalUrl.placeholder = 'Saved ✓  (paste again to replace)';
-  if (filter) gcalFilter.value = filter;
-  if (gcal) loadGcalPreview();
-}
-
+// ---- meals ----
 async function loadMeals() {
   config = await (await fetch('/api/config')).json();
   const settings = await (await fetch('/api/meals/settings')).json();
-
-  // manual editor rows
   const meals = config.meals || [];
   mealsEditor.innerHTML = '';
   meals.forEach((m, i) => {
-    const row = document.createElement('div');
-    row.className = 'meal-row';
-    const label = document.createElement('label');
-    label.textContent = m.day;
+    const row = document.createElement('div'); row.className = 'meal-row';
+    const label = document.createElement('label'); label.textContent = m.day;
     const input = document.createElement('input');
-    input.type = 'text';
-    input.value = m.meal || '';
-    input.placeholder = 'e.g. Taco night';
-    input.dataset.idx = i;
-    row.append(label, input);
-    mealsEditor.appendChild(row);
+    input.type = 'text'; input.value = m.meal || ''; input.placeholder = 'e.g. Taco night'; input.dataset.idx = i;
+    row.append(label, input); mealsEditor.appendChild(row);
   });
-
-  applyMode(settings.source, settings.has_url, settings.filter);
+  const gcal = settings.source === 'gcal';
+  gcalOn.checked = gcal;
+  gcalBox.classList.toggle('hidden', !gcal);
+  manualBox.classList.toggle('hidden', gcal);
+  if (settings.has_url) gcalUrl.placeholder = 'Saved ✓  (paste again to replace)';
+  if (settings.filter) gcalFilter.value = settings.filter;
+  if (gcal) loadGcalPreview();
 }
-
 async function loadGcalPreview() {
   gcalPreview.textContent = 'Loading this week…';
   try {
     const data = await (await fetch('/api/meals')).json();
-    if (data.connected === false) {
-      gcalPreview.innerHTML = '<span class="warn">Not connected yet — paste the iCal URL above and save.</span>';
-      return;
-    }
+    if (data.connected === false) { gcalPreview.innerHTML = '<span class="warn">Not connected yet — paste the iCal URL above and save.</span>'; return; }
     gcalPreview.innerHTML = '';
     (data.days || []).forEach(d => {
-      const row = document.createElement('div');
-      row.className = 'preview-row';
+      const row = document.createElement('div'); row.className = 'preview-row';
       const day = document.createElement('span'); day.className = 'pday'; day.textContent = d.day;
       const meal = document.createElement('span');
       const txt = (d.meals && d.meals.length) ? d.meals.join(', ') : 'Not planned';
-      meal.className = 'pmeal' + (d.meals && d.meals.length ? '' : ' empty');
-      meal.textContent = txt;
-      row.append(day, meal);
-      gcalPreview.appendChild(row);
+      meal.className = 'pmeal' + (d.meals && d.meals.length ? '' : ' empty'); meal.textContent = txt;
+      row.append(day, meal); gcalPreview.appendChild(row);
     });
-  } catch (e) {
-    gcalPreview.innerHTML = '<span class="warn">Could not read the calendar.</span>';
-  }
+  } catch (e) { gcalPreview.innerHTML = '<span class="warn">Could not read the calendar.</span>'; }
 }
-
 gcalOn.addEventListener('change', async () => {
-  const source = gcalOn.checked ? 'gcal' : 'manual';
-  await fetch('/api/meals/settings', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ source }),
-  });
+  await fetch('/api/meals/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: gcalOn.checked ? 'gcal' : 'manual' }) });
   gcalBox.classList.toggle('hidden', !gcalOn.checked);
   manualBox.classList.toggle('hidden', gcalOn.checked);
   if (gcalOn.checked) loadGcalPreview();
-  flash('Saved ✓');
+  flash(mealsSaved, 'Saved ✓');
 });
-
 saveGcal.addEventListener('click', async () => {
   const body = { source: 'gcal', filter: gcalFilter.value.trim() };
   if (gcalUrl.value.trim()) body.ical_url = gcalUrl.value.trim();
-  const res = await fetch('/api/meals/settings', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const out = await res.json();
-  if (!out.ok) { flash(out.error || 'Error'); return; }
-  gcalUrl.value = '';
-  gcalUrl.placeholder = 'Saved ✓  (paste again to replace)';
-  flash('Saved ✓');
-  loadGcalPreview();
+  const out = await (await fetch('/api/meals/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+  if (!out.ok) { flash(mealsSaved, out.error || 'Error'); return; }
+  gcalUrl.value = ''; gcalUrl.placeholder = 'Saved ✓  (paste again to replace)';
+  flash(mealsSaved, 'Saved ✓'); loadGcalPreview();
 });
-
 saveMeals.addEventListener('click', async () => {
   if (!config) return;
-  mealsEditor.querySelectorAll('input').forEach(inp => {
-    config.meals[inp.dataset.idx].meal = inp.value.trim();
-  });
-  await fetch('/api/config', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ meals: config.meals }),
-  });
-  flash('Saved ✓');
+  mealsEditor.querySelectorAll('input').forEach(inp => { config.meals[inp.dataset.idx].meal = inp.value.trim(); });
+  await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ meals: config.meals }) });
+  flash(mealsSaved, 'Saved ✓');
+});
+
+// ---- photos ----
+async function loadPhotos() {
+  const s = await (await fetch('/api/photos/settings')).json();
+  photosOn.checked = !!s.enabled;
+  photosBox.classList.toggle('hidden', !s.enabled);
+  photosInterval.value = s.interval || 12;
+  if (s.has_url) photosUrl.placeholder = 'Saved ✓  (paste again to replace)';
+  if (s.enabled) refreshPhotoStatus();
+}
+async function refreshPhotoStatus() {
+  photosStatus.textContent = 'Checking album…'; photosStatus.className = 'status-line';
+  try {
+    const d = await (await fetch('/api/photos')).json();
+    if (d.connected === false) { photosStatus.textContent = 'Not connected yet — paste the album link and save.'; photosStatus.className = 'status-line warn'; return; }
+    photosStatus.textContent = `Found ${d.count} photo${d.count === 1 ? '' : 's'}.`;
+    photosStatus.className = 'status-line ok';
+  } catch (e) { photosStatus.textContent = 'Could not read the album.'; photosStatus.className = 'status-line warn'; }
+}
+photosOn.addEventListener('change', async () => {
+  await fetch('/api/photos/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: photosOn.checked }) });
+  photosBox.classList.toggle('hidden', !photosOn.checked);
+  if (photosOn.checked) refreshPhotoStatus();
+  flash(photosSaved, 'Saved ✓');
+});
+savePhotos.addEventListener('click', async () => {
+  const body = { enabled: true, interval: parseInt(photosInterval.value, 10) || 12 };
+  if (photosUrl.value.trim()) body.album_url = photosUrl.value.trim();
+  const out = await (await fetch('/api/photos/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+  if (!out.ok) { flash(photosSaved, out.error || 'Error'); return; }
+  photosOn.checked = true; photosUrl.value = ''; photosUrl.placeholder = 'Saved ✓  (paste again to replace)';
+  flash(photosSaved, 'Saved ✓'); refreshPhotoStatus();
 });

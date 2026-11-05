@@ -105,3 +105,10 @@ body { justify-content: flex-start; padding-top: 100px; }
 .preview-row .pday { width: 42px; font-weight: 700; opacity: 0.7; }
 .pmeal.empty { opacity: 0.35; font-style: italic; }
 .warn { color: #ffcf6b; font-size: 13px; }
+
+/* ---- photos tab ---- */
+.inline-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
+.inline-field input { width: 90px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: #161616; color: #fff; font-size: 14px; }
+.status-line { font-size: 13px; margin: 4px 0 0; opacity: 0.85; }
+.status-line.ok { color: #34d0a8; }
+.status-line.warn { color: #ffcf6b; }

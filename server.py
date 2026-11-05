@@ -8,6 +8,7 @@ HDMI-CEC bridge (deploy/kiosk/cec-bridge.py).
 """
 import json
 import os
+import re
 import socket
 import io
 import time
@@ -36,8 +37,10 @@ WEATHER_CACHE_SECONDS = 600  # Open-Meteo is free/keyless; still no need to hit 
 STREMIO_API = "https://api.strem.io/api"
 CONTINUE_CACHE_SECONDS = 120
 MEALS_CACHE_SECONDS = 300
+PHOTOS_CACHE_SECONDS = 1800
 
 DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+PHOTO_URL_RE = re.compile(r"https://lh3\.googleusercontent\.com/[A-Za-z0-9_\-/]+")
 
 # Websocket connections from TV displays, so a phone remote can reach them.
 tv_sockets = set()
@@ -45,6 +48,7 @@ tv_sockets = set()
 _weather_cache = {"time": 0, "data": None}
 _continue_cache = {"time": 0, "data": None}
 _meals_cache = {"time": 0, "data": None}
+_photos_cache = {"time": 0, "data": None, "url": None}
 
 WEATHER_CODES = {
     0: ("Clear", "☀️"),
@@ -90,6 +94,7 @@ CONFIG_DEFAULTS = {
     "stremio": {"enabled": True},
     "meals_source": "manual",
     "meals_filter": "",
+    "photos": {"enabled": False, "interval": 12},
 }
 
 
@@ -431,6 +436,109 @@ async def handle_post_meals_settings(request):
     return web.json_response({"ok": True})
 
 
+# ----------------------------------------------------------------------
+# Ambient background photos, read from a Google Photos *shared album* link.
+# The official Photos API no longer allows reading a user's existing albums
+# unattended, so we fetch the public shared-album page and pull the image
+# URLs out of it (the method DIY photo frames use). Unofficial, but no login.
+# ----------------------------------------------------------------------
+def photos_album_url():
+    return os.environ.get("MIKE_TV_PHOTOS_ALBUM") or load_secrets().get("photos_album_url")
+
+
+def extract_photo_urls(html):
+    seen = set()
+    out = []
+    for url in PHOTO_URL_RE.findall(html):
+        if "/a/" in url or "/a-/" in url:  # owner avatars, not photos
+            continue
+        if len(url) < 60:  # icons / tiny assets
+            continue
+        if url in seen:
+            continue
+        seen.add(url)
+        out.append(url)
+    # Shared-album photos use the /pw/ path; prefer those if present.
+    pw = [u for u in out if "/pw/" in u]
+    chosen = pw if pw else out
+    return [u + "=w1920-h1080" for u in chosen[:120]]
+
+
+async def fetch_text(url):
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; MikeTV/1.0)"}
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            resp.raise_for_status()
+            return await resp.text()
+
+
+async def handle_photos(request):
+    cfg = load_config()
+    photos = cfg.get("photos") or {}
+    if not photos.get("enabled"):
+        return web.json_response({"enabled": False, "urls": []})
+    url = photos_album_url()
+    if not url:
+        return web.json_response({"enabled": True, "connected": False, "urls": []})
+
+    now = time.time()
+    if (_photos_cache["data"] is not None and _photos_cache["url"] == url
+            and now - _photos_cache["time"] < PHOTOS_CACHE_SECONDS):
+        return web.json_response(_photos_cache["data"])
+    try:
+        html = await fetch_text(url)
+        urls = extract_photo_urls(html)
+        payload = {
+            "enabled": True, "connected": True,
+            "count": len(urls), "interval": photos.get("interval", 12), "urls": urls,
+        }
+        _photos_cache.update(time=now, data=payload, url=url)
+        return web.json_response(payload)
+    except Exception as e:
+        if _photos_cache["data"] is not None:
+            return web.json_response(_photos_cache["data"])
+        return web.json_response({"enabled": True, "connected": False, "error": str(e), "urls": []})
+
+
+async def handle_get_photos_settings(request):
+    cfg = load_config()
+    photos = cfg.get("photos") or {}
+    return web.json_response({
+        "enabled": bool(photos.get("enabled")),
+        "interval": photos.get("interval", 12),
+        "has_url": bool(photos_album_url()),
+    })
+
+
+async def handle_post_photos_settings(request):
+    body = await request.json()
+    cfg = load_config()
+    photos = cfg.get("photos") or {}
+    if "enabled" in body:
+        photos["enabled"] = bool(body["enabled"])
+    if "interval" in body:
+        try:
+            photos["interval"] = max(4, int(body["interval"]))
+        except (TypeError, ValueError):
+            pass
+    cfg["photos"] = photos
+    save_config(cfg)
+
+    if "album_url" in body:
+        url = (body.get("album_url") or "").strip()
+        if url and not url.lower().startswith(("http://", "https://")):
+            return web.json_response({"ok": False, "error": "URL must start with http(s)://"}, status=400)
+        secrets = load_secrets()
+        if url:
+            secrets["photos_album_url"] = url
+        else:
+            secrets.pop("photos_album_url", None)
+        SECRETS_FILE.write_text(json.dumps(secrets, indent=2))
+
+    _photos_cache["data"] = None
+    return web.json_response({"ok": True})
+
+
 async def handle_ws(request):
     ws = web.WebSocketResponse(heartbeat=25)
     await ws.prepare(request)
@@ -479,6 +587,9 @@ def create_app():
     app.router.add_get("/api/meals", handle_meals)
     app.router.add_get("/api/meals/settings", handle_get_meals_settings)
     app.router.add_post("/api/meals/settings", handle_post_meals_settings)
+    app.router.add_get("/api/photos", handle_photos)
+    app.router.add_get("/api/photos/settings", handle_get_photos_settings)
+    app.router.add_post("/api/photos/settings", handle_post_photos_settings)
     app.router.add_get("/ws", handle_ws)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
     return app

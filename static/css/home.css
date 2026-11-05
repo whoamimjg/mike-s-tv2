@@ -324,3 +324,14 @@ body.theme-minimal .orb { opacity: 0.25; }
 .close-panel { margin-top: 10px; width: 100%; padding: 14px; border-radius: 12px; border: none; background: var(--accent); color: #04231a; font-weight: 800; font-size: 15px; cursor: pointer; }
 
 .hidden { display: none; }
+
+/* ---- Ambient photo-frame mode (Google shared album background) ---- */
+.ambient.photo-mode .ambient-bg {
+  filter: brightness(0.62) saturate(1.05);  /* show the photo clearly, no blur */
+  transform: scale(1.03);
+}
+.ambient.photo-mode .ambient-scrim {
+  background:
+    linear-gradient(100deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,0.12) 66%, rgba(0,0,0,0.3) 100%),
+    linear-gradient(0deg, rgba(0,0,0,0.5) 0%, transparent 38%);
+}

@@ -67,6 +67,22 @@ a Google Calendar your recipe manager writes to. It reads the calendar's
 Leave the toggle off to plan meals by hand on the same Meals tab instead. The
 iCal URL is stored only in `data/secrets.json` (gitignored).
 
+## Background photos (Google Photos shared album)
+
+The ambient screen can rotate through a Google Photos album behind the clock,
+like a photo frame. Google's API no longer allows reading your albums
+unattended, so this reads a **shared album link** instead (no login, no keys).
+
+1. In Google Photos, open the album -> Share -> **Create link**, and copy it.
+2. On your phone, open the Mike TV remote -> **Photos** tab -> check the box,
+   paste the link, set seconds-per-photo, and Save. The status shows how many
+   photos were found.
+
+Add photos to the album anytime and they show up on the TV within ~30 minutes
+(the feed is cached). The link is stored only in `data/secrets.json`. Note this
+reads Google's public shared-album page, so a future change on Google's side
+could require a small update here.
+
 ## Remote control
 
 - **LG remote (recommended):** needs HDMI-CEC. Most PC GPUs don't carry CEC, so

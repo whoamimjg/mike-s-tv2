@@ -334,6 +334,8 @@ async function saveConfig() {
 let idleTimer = null;
 let ambientInterval = null;
 let ambientBgIdx = 0;
+let photos = [];             // Google shared-album image URLs for the background
+let photoIntervalMs = 12000;
 
 function idleMs() {
   const s = (config && config.ambient && config.ambient.idle_seconds) || 120;
@@ -353,22 +355,36 @@ function enterAmbient() {
   setAmbientBg();
   ambient.classList.remove('hidden');
   if (ambientInterval) clearInterval(ambientInterval);
-  ambientInterval = setInterval(setAmbientBg, 12000);
+  ambientInterval = setInterval(setAmbientBg, photos.length ? photoIntervalMs : 12000);
 }
 function exitAmbient() {
   ambient.classList.add('hidden');
   if (ambientInterval) { clearInterval(ambientInterval); ambientInterval = null; }
   bumpIdle();
 }
+function ambientBgImages() {
+  if (photos.length) return photos;
+  return watching.filter(w => w.poster).map(w => w.poster);
+}
 function setAmbientBg() {
-  const withPoster = watching.filter(w => w.poster);
-  if (withPoster.length === 0) { ambientBg.style.backgroundImage = ''; return; }
-  ambientBgIdx = (ambientBgIdx + 1) % withPoster.length;
+  const imgs = ambientBgImages();
+  ambient.classList.toggle('photo-mode', photos.length > 0);
+  if (imgs.length === 0) { ambientBg.style.backgroundImage = ''; return; }
+  ambientBgIdx = (ambientBgIdx + 1) % imgs.length;
   ambientBg.style.opacity = '0';
   setTimeout(() => {
-    ambientBg.style.backgroundImage = `url("${withPoster[ambientBgIdx].poster}")`;
+    ambientBg.style.backgroundImage = `url("${imgs[ambientBgIdx]}")`;
     ambientBg.style.opacity = '1';
   }, 400);
+}
+async function loadPhotos() {
+  try {
+    const d = await (await fetch('/api/photos')).json();
+    photos = (d && d.urls) || [];
+    photoIntervalMs = ((d && d.interval) || 12) * 1000;
+  } catch (e) {
+    photos = [];
+  }
 }
 async function loadMeals() {
   try {
@@ -448,6 +464,8 @@ async function init() {
   setInterval(loadContinue, CONTINUE_REFRESH);
   loadMeals();
   setInterval(loadMeals, CONTINUE_REFRESH);
+  loadPhotos();
+  setInterval(loadPhotos, 30 * 60 * 1000);
   connectWS();
   bumpIdle();
   grid.focus();
