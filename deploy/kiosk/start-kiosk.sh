@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Launch Chromium full-screen (kiosk) pointing at the Mike TV server.
-# Called by xinit from chromium-kiosk.service. No desktop environment needed.
+# Called by startx/xinit. No desktop environment needed.
 set -e
 
 URL="${MIKE_TV_URL:-http://localhost:4950}"
@@ -9,6 +9,21 @@ URL="${MIKE_TV_URL:-http://localhost:4950}"
 xset -dpms || true
 xset s off || true
 xset s noblank || true
+
+# Collapse to a single active output (the TV). Intel chips often report a
+# second, phantom output; left alone, X builds a side-by-side desktop and the
+# UI ends up on half the screen. Enable the first connected output at its
+# preferred mode and turn every other output off, so the framebuffer matches
+# the TV exactly before Chromium sizes itself to it.
+if command -v xrandr >/dev/null 2>&1; then
+  PRIMARY="$(xrandr --query | awk '/ connected/{print $1; exit}')"
+  if [ -n "$PRIMARY" ]; then
+    xrandr --output "$PRIMARY" --auto --primary || true
+    for OUT in $(xrandr --query | awk '/ (connected|disconnected)/{print $1}'); do
+      [ "$OUT" = "$PRIMARY" ] || xrandr --output "$OUT" --off || true
+    done
+  fi
+fi
 
 # Hide the mouse pointer after 1s idle.
 command -v unclutter >/dev/null 2>&1 && unclutter -idle 1 &
@@ -31,10 +46,12 @@ fi
 
 # --kiosk          full screen, no chrome UI
 # --incognito      don't nag about restoring tabs; fresh each boot
+# --window-position/size pin it to the top-left of the (now single) screen
 # the disable-* flags silence crash bubbles / update checks on an appliance
 exec "$CHROME" \
   --kiosk "$URL" \
   --incognito \
+  --window-position=0,0 \
   --noerrdialogs \
   --disable-infobars \
   --disable-session-crashed-bubble \
