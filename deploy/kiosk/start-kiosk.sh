@@ -4,24 +4,29 @@
 set -e
 
 URL="${MIKE_TV_URL:-http://localhost:4950}"
+# Resolution to drive the TV at. 1080p is ample for a 10-foot UI and light on
+# the iGPU; override by exporting MIKE_TV_MODE=3840x2160 if you want native 4K.
+MODE="${MIKE_TV_MODE:-1920x1080}"
+WIDTH="${MODE%x*}"
+HEIGHT="${MODE#*x}"
 
 # Keep the screen awake: no blanking, no DPMS power saving.
 xset -dpms || true
 xset s off || true
 xset s noblank || true
 
-# Collapse to a single active output (the TV). Intel chips often report a
-# second, phantom output; left alone, X builds a side-by-side desktop and the
-# UI ends up on half the screen. Enable the first connected output at its
-# preferred mode and turn every other output off, so the framebuffer matches
-# the TV exactly before Chromium sizes itself to it.
+# Pin the display to one output at a fixed mode. Many TVs advertise 4K as their
+# preferred mode, so X builds a 4K framebuffer while the browser opens a smaller
+# window and ends up in a corner. Force the connected output to $MODE and size
+# the framebuffer to match, with every other output off.
 if command -v xrandr >/dev/null 2>&1; then
   PRIMARY="$(xrandr --query | awk '/ connected/{print $1; exit}')"
   if [ -n "$PRIMARY" ]; then
-    xrandr --output "$PRIMARY" --auto --primary || true
     for OUT in $(xrandr --query | awk '/ (connected|disconnected)/{print $1}'); do
       [ "$OUT" = "$PRIMARY" ] || xrandr --output "$OUT" --off || true
     done
+    xrandr --output "$PRIMARY" --mode "$MODE" --pos 0x0 --primary --fb "$MODE" \
+      || xrandr --output "$PRIMARY" --auto --primary || true
   fi
 fi
 
@@ -45,13 +50,14 @@ if [ -z "$CHROME" ]; then
 fi
 
 # --kiosk          full screen, no chrome UI
+# --window-size/position + device-scale-factor 1 pin it to fill the screen
 # --incognito      don't nag about restoring tabs; fresh each boot
-# --window-position/size pin it to the top-left of the (now single) screen
-# the disable-* flags silence crash bubbles / update checks on an appliance
 exec "$CHROME" \
   --kiosk "$URL" \
   --incognito \
   --window-position=0,0 \
+  --window-size="${WIDTH},${HEIGHT}" \
+  --force-device-scale-factor=1 \
   --noerrdialogs \
   --disable-infobars \
   --disable-session-crashed-bubble \
