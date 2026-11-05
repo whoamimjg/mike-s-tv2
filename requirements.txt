@@ -1,3 +1,4 @@
 aiohttp>=3.9,<4
 qrcode[pil]>=7.4,<8
 # aiohttp's own client session is used to call Open-Meteo for weather; no extra package needed.
+icalendar>=5,<7

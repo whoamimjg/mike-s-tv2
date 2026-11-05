@@ -30,8 +30,25 @@
 
   <section id="pane-meals" class="pane hidden">
     <h2 class="pane-title">This week&rsquo;s meals</h2>
-    <div id="meals-editor" class="meals-editor"></div>
-    <button id="save-meals" class="save">Save meals</button>
+
+    <label class="gcal-toggle">
+      <input type="checkbox" id="gcal-on">
+      <span>Pull meals from Google Calendar (your recipe manager)</span>
+    </label>
+
+    <div id="gcal-box" class="gcal-box hidden">
+      <p class="hint">Paste your meal calendar&rsquo;s <b>secret iCal address</b> (Google Calendar &rarr; Settings &rarr; your calendar &rarr; Integrate calendar).</p>
+      <input type="url" id="gcal-url" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
+      <input type="text" id="gcal-filter" placeholder="Optional: only titles containing&hellip; (e.g. Dinner)">
+      <button id="save-gcal" class="save">Save calendar</button>
+      <div id="gcal-preview" class="gcal-preview"></div>
+    </div>
+
+    <div id="manual-box">
+      <div id="meals-editor" class="meals-editor"></div>
+      <button id="save-meals" class="save">Save meals</button>
+    </div>
+
     <p id="meals-saved" class="saved"></p>
   </section>
 

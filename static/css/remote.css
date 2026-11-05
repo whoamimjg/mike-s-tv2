@@ -88,3 +88,20 @@ body { justify-content: flex-start; padding-top: 100px; }
   color: #04231a; font-weight: 800; font-size: 15px;
 }
 .saved { height: 18px; color: #34d0a8; font-weight: 700; font-size: 14px; margin: 0; }
+
+/* ---- meals: google calendar controls ---- */
+.gcal-toggle { display: flex; align-items: center; gap: 10px; max-width: 420px; padding: 0 20px; font-size: 14px; }
+.gcal-toggle input { width: 20px; height: 20px; accent-color: #2aa98a; }
+.gcal-box { width: 100%; max-width: 420px; padding: 0 20px; display: flex; flex-direction: column; gap: 10px; }
+.gcal-box.hidden, #manual-box.hidden { display: none; }
+.gcal-box .hint { font-size: 13px; opacity: 0.7; margin: 4px 0 2px; line-height: 1.4; }
+.gcal-box input {
+  width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18);
+  background: #161616; color: #fff; font-size: 14px;
+}
+.gcal-box input:focus { outline: none; border-color: #2aa98a; }
+.gcal-preview { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.preview-row { display: flex; gap: 12px; font-size: 14px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.preview-row .pday { width: 42px; font-weight: 700; opacity: 0.7; }
+.pmeal.empty { opacity: 0.35; font-style: italic; }
+.warn { color: #ffcf6b; font-size: 13px; }

@@ -11,6 +11,7 @@ import os
 import socket
 import io
 import time
+from datetime import datetime, date, timedelta
 from pathlib import Path
 
 import aiohttp
@@ -34,12 +35,16 @@ WEATHER_CACHE_SECONDS = 600  # Open-Meteo is free/keyless; still no need to hit 
 # Stremio account sync (reads your own library "continue watching").
 STREMIO_API = "https://api.strem.io/api"
 CONTINUE_CACHE_SECONDS = 120
+MEALS_CACHE_SECONDS = 300
+
+DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 # Websocket connections from TV displays, so a phone remote can reach them.
 tv_sockets = set()
 
 _weather_cache = {"time": 0, "data": None}
 _continue_cache = {"time": 0, "data": None}
+_meals_cache = {"time": 0, "data": None}
 
 WEATHER_CODES = {
     0: ("Clear", "☀️"),
@@ -83,6 +88,8 @@ CONFIG_DEFAULTS = {
         {"day": "Sun", "meal": ""},
     ],
     "stremio": {"enabled": True},
+    "meals_source": "manual",
+    "meals_filter": "",
 }
 
 
@@ -292,6 +299,138 @@ async def handle_continue(request):
         return web.json_response({"enabled": True, "connected": True, "items": [], "error": str(e)})
 
 
+# ----------------------------------------------------------------------
+# Meals: manual (edited from the phone) or read from a Google Calendar the
+# user's recipe manager writes to, via that calendar's secret iCal URL.
+# ----------------------------------------------------------------------
+def meals_ical_url():
+    return os.environ.get("MIKE_TV_MEALS_ICAL") or load_secrets().get("meals_ical_url")
+
+
+def _week_bounds(today=None):
+    today = today or date.today()
+    monday = today - timedelta(days=today.weekday())
+    return monday, monday + timedelta(days=6)
+
+
+def _event_date(comp):
+    dt = comp.get("dtstart")
+    if dt is None:
+        return None
+    val = getattr(dt, "dt", None)
+    if isinstance(val, datetime):
+        return val.date()
+    return val  # a date for all-day events
+
+
+def _manual_days(cfg):
+    by_label = {m.get("day"): (m.get("meal") or "") for m in (cfg.get("meals") or [])}
+    return [
+        {"day": lbl, "date": None, "meals": ([by_label[lbl]] if by_label.get(lbl) else [])}
+        for lbl in DAY_LABELS
+    ]
+
+
+def parse_week_meals(ics_text, title_filter=""):
+    from icalendar import Calendar
+
+    monday, sunday = _week_bounds()
+    buckets = {monday + timedelta(days=i): [] for i in range(7)}
+    needle = (title_filter or "").strip().lower()
+
+    cal = Calendar.from_ical(ics_text)
+    for comp in cal.walk("VEVENT"):
+        d = _event_date(comp)
+        if not d or d < monday or d > sunday:
+            continue
+        summary = str(comp.get("summary") or "").strip()
+        if not summary:
+            continue
+        if needle:
+            if needle not in summary.lower():
+                continue
+            # Strip a leading "Dinner:" style tag so the tile shows just the dish.
+            low = summary.lower()
+            idx = low.find(needle)
+            tail = summary[idx + len(needle):].lstrip(" :-–—")
+            if tail:
+                summary = tail
+        buckets[d].append(summary)
+
+    out = []
+    for i in range(7):
+        d = monday + timedelta(days=i)
+        out.append({"day": DAY_LABELS[i], "date": d.isoformat(), "meals": buckets[d]})
+    return out
+
+
+async def fetch_ical_text(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=12)) as resp:
+            resp.raise_for_status()
+            return await resp.text()
+
+
+async def handle_meals(request):
+    cfg = load_config()
+    if cfg.get("meals_source") != "gcal":
+        return web.json_response({"source": "manual", "days": _manual_days(cfg)})
+
+    url = meals_ical_url()
+    if not url:
+        return web.json_response({"source": "gcal", "connected": False, "days": _manual_days(cfg)})
+
+    now = time.time()
+    if _meals_cache["data"] and now - _meals_cache["time"] < MEALS_CACHE_SECONDS:
+        return web.json_response(_meals_cache["data"])
+    try:
+        text = await fetch_ical_text(url)
+        days = parse_week_meals(text, cfg.get("meals_filter", ""))
+        payload = {"source": "gcal", "connected": True, "days": days}
+        _meals_cache["data"] = payload
+        _meals_cache["time"] = now
+        return web.json_response(payload)
+    except Exception as e:
+        if _meals_cache["data"]:
+            return web.json_response(_meals_cache["data"])
+        return web.json_response(
+            {"source": "gcal", "connected": False, "error": str(e), "days": _manual_days(cfg)}
+        )
+
+
+async def handle_get_meals_settings(request):
+    cfg = load_config()
+    return web.json_response({
+        "source": cfg.get("meals_source", "manual"),
+        "filter": cfg.get("meals_filter", ""),
+        "has_url": bool(meals_ical_url()),
+    })
+
+
+async def handle_post_meals_settings(request):
+    body = await request.json()
+    cfg = load_config()
+    if body.get("source") in ("manual", "gcal"):
+        cfg["meals_source"] = body["source"]
+    if "filter" in body:
+        cfg["meals_filter"] = (body.get("filter") or "").strip()
+    save_config(cfg)
+
+    if "ical_url" in body:
+        url = (body.get("ical_url") or "").strip()
+        if url and not url.lower().startswith(("http://", "https://")):
+            return web.json_response({"ok": False, "error": "URL must start with http(s)://"}, status=400)
+        secrets = load_secrets()
+        if url:
+            secrets["meals_ical_url"] = url
+        else:
+            secrets.pop("meals_ical_url", None)
+        SECRETS_FILE.write_text(json.dumps(secrets, indent=2))
+
+    _meals_cache["data"] = None  # force a fresh pull next request
+    return web.json_response({"ok": True})
+
+
 async def handle_ws(request):
     ws = web.WebSocketResponse(heartbeat=25)
     await ws.prepare(request)
@@ -337,6 +476,9 @@ def create_app():
     app.router.add_get("/api/qr", handle_qr)
     app.router.add_get("/api/weather", handle_weather)
     app.router.add_get("/api/continue", handle_continue)
+    app.router.add_get("/api/meals", handle_meals)
+    app.router.add_get("/api/meals/settings", handle_get_meals_settings)
+    app.router.add_post("/api/meals/settings", handle_post_meals_settings)
     app.router.add_get("/ws", handle_ws)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
     return app

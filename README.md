@@ -49,6 +49,24 @@ python3 scripts/stremio_login.py
 Continue Watching fills in within about two minutes. Settings shows the
 connection status.
 
+## Meals from your recipe manager (Google Calendar)
+
+Mike TV can show the week's dinners on the ambient screen, pulled straight from
+a Google Calendar your recipe manager writes to. It reads the calendar's
+**secret iCal address** (read-only, no Google login or API keys).
+
+1. In Google Calendar (web): Settings -> pick the calendar your recipe manager
+   writes meals to -> **Integrate calendar** -> copy the **Secret address in
+   iCal format**.
+2. On your phone, open the Mike TV remote page -> **Meals** tab -> check
+   **Pull meals from Google Calendar**, paste that URL, and Save.
+3. If meals share a calendar with other events, set the optional title filter
+   (e.g. `Dinner`) so only meal events show. A dedicated meal calendar needs no
+   filter.
+
+Leave the toggle off to plan meals by hand on the same Meals tab instead. The
+iCal URL is stored only in `data/secrets.json` (gitignored).
+
 ## Remote control
 
 - **LG remote (recommended):** needs HDMI-CEC. Most PC GPUs don't carry CEC, so

@@ -28,6 +28,7 @@ const ambientWatchingCard = document.getElementById('ambient-watching-card');
 
 let config = null;
 let watching = [];           // continue-watching items
+let weekMeals = [];          // [{day, date, meals:[...]}] for the week
 let section = 'grid';        // 'continue' | 'grid'
 let continueIndex = 0;
 let gridIndex = 0;
@@ -369,17 +370,30 @@ function setAmbientBg() {
     ambientBg.style.opacity = '1';
   }, 400);
 }
+async function loadMeals() {
+  try {
+    const data = await (await fetch('/api/meals')).json();
+    weekMeals = (data && data.days) || [];
+  } catch (e) {
+    weekMeals = [];
+  }
+  renderAmbientMeals();
+}
+
 function renderAmbientMeals() {
-  const meals = (config && config.meals) || [];
+  const days = weekMeals.length
+    ? weekMeals
+    : (config && config.meals || []).map(m => ({ day: m.day, meals: m.meal ? [m.meal] : [] }));
   const todayIdx = (new Date().getDay() + 6) % 7; // 0 = Mon
   ambientMeals.innerHTML = '';
-  meals.forEach((m, i) => {
+  days.forEach((m, i) => {
     const li = document.createElement('li');
     if (i === todayIdx) li.classList.add('today');
     const d = document.createElement('span'); d.className = 'mday'; d.textContent = m.day;
+    const text = (m.meals && m.meals.length) ? m.meals.join(', ') : '';
     const meal = document.createElement('span');
-    meal.className = 'mmeal' + (m.meal ? '' : ' empty');
-    meal.textContent = m.meal || 'Not planned';
+    meal.className = 'mmeal' + (text ? '' : ' empty');
+    meal.textContent = text || 'Not planned';
     li.append(d, meal);
     ambientMeals.appendChild(li);
   });
@@ -432,6 +446,8 @@ async function init() {
   loadWeather();
   loadContinue();
   setInterval(loadContinue, CONTINUE_REFRESH);
+  loadMeals();
+  setInterval(loadMeals, CONTINUE_REFRESH);
   connectWS();
   bumpIdle();
   grid.focus();

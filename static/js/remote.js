@@ -6,6 +6,13 @@ const paneMeals = document.getElementById('pane-meals');
 const mealsEditor = document.getElementById('meals-editor');
 const saveMeals = document.getElementById('save-meals');
 const mealsSaved = document.getElementById('meals-saved');
+const gcalOn = document.getElementById('gcal-on');
+const gcalBox = document.getElementById('gcal-box');
+const manualBox = document.getElementById('manual-box');
+const gcalUrl = document.getElementById('gcal-url');
+const gcalFilter = document.getElementById('gcal-filter');
+const saveGcal = document.getElementById('save-gcal');
+const gcalPreview = document.getElementById('gcal-preview');
 
 let ws;
 let config = null;
@@ -37,9 +44,24 @@ function showTab(which) {
 tabRemote.addEventListener('click', () => showTab('remote'));
 tabMeals.addEventListener('click', () => showTab('meals'));
 
-// ---- meals editor ----
+// ---- meals tab ----
+function flash(msg) { mealsSaved.textContent = msg; setTimeout(() => { mealsSaved.textContent = ''; }, 2000); }
+
+function applyMode(source, hasUrl, filter) {
+  const gcal = source === 'gcal';
+  gcalOn.checked = gcal;
+  gcalBox.classList.toggle('hidden', !gcal);
+  manualBox.classList.toggle('hidden', gcal);
+  if (hasUrl && !gcalUrl.value) gcalUrl.placeholder = 'Saved ✓  (paste again to replace)';
+  if (filter) gcalFilter.value = filter;
+  if (gcal) loadGcalPreview();
+}
+
 async function loadMeals() {
   config = await (await fetch('/api/config')).json();
+  const settings = await (await fetch('/api/meals/settings')).json();
+
+  // manual editor rows
   const meals = config.meals || [];
   mealsEditor.innerHTML = '';
   meals.forEach((m, i) => {
@@ -55,7 +77,61 @@ async function loadMeals() {
     row.append(label, input);
     mealsEditor.appendChild(row);
   });
+
+  applyMode(settings.source, settings.has_url, settings.filter);
 }
+
+async function loadGcalPreview() {
+  gcalPreview.textContent = 'Loading this week…';
+  try {
+    const data = await (await fetch('/api/meals')).json();
+    if (data.connected === false) {
+      gcalPreview.innerHTML = '<span class="warn">Not connected yet — paste the iCal URL above and save.</span>';
+      return;
+    }
+    gcalPreview.innerHTML = '';
+    (data.days || []).forEach(d => {
+      const row = document.createElement('div');
+      row.className = 'preview-row';
+      const day = document.createElement('span'); day.className = 'pday'; day.textContent = d.day;
+      const meal = document.createElement('span');
+      const txt = (d.meals && d.meals.length) ? d.meals.join(', ') : 'Not planned';
+      meal.className = 'pmeal' + (d.meals && d.meals.length ? '' : ' empty');
+      meal.textContent = txt;
+      row.append(day, meal);
+      gcalPreview.appendChild(row);
+    });
+  } catch (e) {
+    gcalPreview.innerHTML = '<span class="warn">Could not read the calendar.</span>';
+  }
+}
+
+gcalOn.addEventListener('change', async () => {
+  const source = gcalOn.checked ? 'gcal' : 'manual';
+  await fetch('/api/meals/settings', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source }),
+  });
+  gcalBox.classList.toggle('hidden', !gcalOn.checked);
+  manualBox.classList.toggle('hidden', gcalOn.checked);
+  if (gcalOn.checked) loadGcalPreview();
+  flash('Saved ✓');
+});
+
+saveGcal.addEventListener('click', async () => {
+  const body = { source: 'gcal', filter: gcalFilter.value.trim() };
+  if (gcalUrl.value.trim()) body.ical_url = gcalUrl.value.trim();
+  const res = await fetch('/api/meals/settings', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const out = await res.json();
+  if (!out.ok) { flash(out.error || 'Error'); return; }
+  gcalUrl.value = '';
+  gcalUrl.placeholder = 'Saved ✓  (paste again to replace)';
+  flash('Saved ✓');
+  loadGcalPreview();
+});
 
 saveMeals.addEventListener('click', async () => {
   if (!config) return;
@@ -66,6 +142,5 @@ saveMeals.addEventListener('click', async () => {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ meals: config.meals }),
   });
-  mealsSaved.textContent = 'Saved ✓';
-  setTimeout(() => { mealsSaved.textContent = ''; }, 2000);
+  flash('Saved ✓');
 });
